@@ -1,27 +1,25 @@
-package mymodule
+package tenantprofile
 
 import (
 	"context"
 
 	"github.com/google/uuid"
-	"go.edgescale.dev/kernel-contrib/mymodule/internal"
-	"go.edgescale.dev/kernel-contrib/mymodule/types"
+	"go.edgescale.dev/kernel-contrib/tenant-profile/internal"
+	"go.edgescale.dev/kernel-contrib/tenant-profile/types"
 )
 
 // ── Reader interface ──────────────────────────────────────────────────────────
 
-// MyModuleReader is the cross-module reader interface.
+// TenantProfileReader is the cross-module reader interface.
 // Other modules consume this via:
 //
-//	reader, err := sdk.Reader[mymodule.MyModuleReader](&m.ctx, "mymodule")
+//	reader, err := sdk.Reader[tenantprofile.TenantProfileReader](&m.ctx, "tenant_profile")
 //
 // Rules:
 //   - All methods MUST be read-only (no writes, no events).
-//   - Always scope queries by tenant to prevent cross-tenant data leaks.
 //   - Resolve readers lazily in handlers, NEVER in Init().
-//   - Optional: back with Redis cache for performance.
-type MyModuleReader interface {
-	GetItem(ctx context.Context, id uuid.UUID) (*types.Item, error)
+type TenantProfileReader interface {
+	GetProfile(ctx context.Context, tenantID uuid.UUID) (*types.TenantProfile, error)
 }
 
 // ── Implementation ────────────────────────────────────────────────────────────
@@ -31,6 +29,6 @@ type moduleReader struct {
 	repo *internal.Repository
 }
 
-func (r *moduleReader) GetItem(ctx context.Context, id uuid.UUID) (*types.Item, error) {
-	return r.repo.FindItemByID(ctx, id)
+func (r *moduleReader) GetProfile(ctx context.Context, tenantID uuid.UUID) (*types.TenantProfile, error) {
+	return r.repo.FindByTenantID(ctx, tenantID)
 }

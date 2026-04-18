@@ -6,123 +6,116 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"go.edgescale.dev/kernel-contrib/mymodule/types"
+	"go.edgescale.dev/kernel-contrib/tenant-profile/types"
 	"go.edgescale.dev/kernel/sdk"
 )
 
-// Service provides business logic for the module's domain operations.
-// Services are the ONLY place where:
-//   - Business rules are enforced
-//   - Events are published
-//   - Cache is invalidated
+// Service provides business logic for tenant profile operations.
 type Service struct {
-	repo  *Repository
-	bus   sdk.EventBus
-	redis sdk.NamespacedRedis
-	log   *slog.Logger
+	repo *Repository
+	bus  sdk.EventBus
+	log  *slog.Logger
 }
 
 // NewService constructs a Service.
-func NewService(repo *Repository, bus sdk.EventBus, redis sdk.NamespacedRedis, log *slog.Logger) *Service {
-	return &Service{repo: repo, bus: bus, redis: redis, log: log}
+func NewService(repo *Repository, bus sdk.EventBus, log *slog.Logger) *Service {
+	return &Service{repo: repo, bus: bus, log: log}
 }
 
 // ── Query ─────────────────────────────────────────────────────────────────────
 
-// GetByID returns an item by internal UUID.
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*types.Item, error) {
-	item, err := s.repo.FindItemByID(ctx, id)
+// GetByTenantID returns a tenant profile by tenant UUID.
+func (s *Service) GetByTenantID(ctx context.Context, tenantID uuid.UUID) (*types.TenantProfile, error) {
+	profile, err := s.repo.FindByTenantID(ctx, tenantID)
 	if IsNotFoundErr(err) {
-		return nil, sdk.NotFound("item", id)
+		return nil, sdk.NotFound("tenant_profile", tenantID)
 	}
-	return item, err
-}
-
-// List returns a paginated list of items for a tenant.
-func (s *Service) List(ctx context.Context, tenantID uuid.UUID, page sdk.PageRequest) (*sdk.PageResult[types.Item], error) {
-	return s.repo.ListItems(ctx, tenantID, page)
+	return profile, err
 }
 
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
-// CreateItemInput contains the fields for creating a new item.
-type CreateItemInput struct {
-	TenantID    uuid.UUID
-	Name        string
-	Description *string
+// CreateProfileInput contains the fields for creating a new tenant profile.
+type CreateProfileInput struct {
+	TenantID uuid.UUID
+	Address  sdk.JSONB
+	Industry *string
+	Size     *string
+	Metadata sdk.JSONB
 }
 
-// Create inserts a new item and publishes mymodule.item.created.
-func (s *Service) Create(ctx context.Context, in CreateItemInput) (*types.Item, error) {
-	if in.Name == "" {
-		return nil, sdk.BadRequest("name is required")
+// Create inserts a new tenant profile. If one already exists, it returns a conflict error.
+func (s *Service) Create(ctx context.Context, in CreateProfileInput) (*types.TenantProfile, error) {
+	if in.TenantID == uuid.Nil {
+		return nil, sdk.BadRequest("tenant_id is required")
 	}
 
-	item := &types.Item{
-		TenantID:    in.TenantID,
-		Name:        in.Name,
-		Description: in.Description,
+	// Check if a profile already exists.
+	if existing, _ := s.repo.FindByTenantID(ctx, in.TenantID); existing != nil {
+		return nil, sdk.Conflict("tenant profile already exists")
 	}
 
-	if err := s.repo.CreateItem(ctx, item); err != nil {
-		if IsDuplicateError(err) {
-			return nil, sdk.Conflict("item with this name already exists")
-		}
-		return nil, fmt.Errorf("mymodule: create item: %w", err)
+	profile := &types.TenantProfile{
+		TenantID: in.TenantID,
+		Address:  in.Address,
+		Industry: in.Industry,
+		Size:     in.Size,
+		Metadata: in.Metadata,
 	}
 
-	s.publish(ctx, "mymodule.item.created", map[string]any{
-		"item_id":   item.ID,
-		"tenant_id": item.TenantID,
+	if err := s.repo.Upsert(ctx, profile); err != nil {
+		return nil, fmt.Errorf("tenant_profile: create: %w", err)
+	}
+
+	s.publish(ctx, "tenant_profile.profile.created", map[string]any{
+		"tenant_id": in.TenantID,
 	})
 
-	return item, nil
+	return profile, nil
 }
 
-// UpdateItemInput is a partial update for item fields.
-type UpdateItemInput struct {
-	Name        *string
-	Description *string
+// UpdateProfileInput is a partial update for tenant profile fields.
+type UpdateProfileInput struct {
+	Address  *sdk.JSONB
+	Industry *string
+	Size     *string
+	Metadata *sdk.JSONB
 }
 
-// Update patches item fields and publishes mymodule.item.updated.
-func (s *Service) Update(ctx context.Context, id uuid.UUID, in UpdateItemInput) (*types.Item, error) {
-	updates := make(map[string]any)
-	if in.Name != nil {
-		updates["name"] = *in.Name
+// Update patches tenant profile fields and publishes tenant_profile.profile.updated.
+func (s *Service) Update(ctx context.Context, tenantID uuid.UUID, in UpdateProfileInput) (*types.TenantProfile, error) {
+	// Verify the profile exists.
+	if _, err := s.GetByTenantID(ctx, tenantID); err != nil {
+		return nil, err
 	}
-	if in.Description != nil {
-		updates["description"] = *in.Description
+
+	updates := make(map[string]any)
+	if in.Address != nil {
+		updates["address"] = *in.Address
+	}
+	if in.Industry != nil {
+		updates["industry"] = *in.Industry
+	}
+	if in.Size != nil {
+		updates["size"] = *in.Size
+	}
+	if in.Metadata != nil {
+		updates["metadata"] = *in.Metadata
 	}
 	if len(updates) == 0 {
-		return s.repo.FindItemByID(ctx, id)
+		return s.repo.FindByTenantID(ctx, tenantID)
 	}
 
-	item, err := s.repo.UpdateItem(ctx, id, updates)
-	if IsNotFoundErr(err) {
-		return nil, sdk.NotFound("item", id)
-	}
+	profile, err := s.repo.Update(ctx, tenantID, updates)
 	if err != nil {
 		return nil, err
 	}
 
-	s.publish(ctx, "mymodule.item.updated", map[string]any{"item_id": id})
-	return item, nil
-}
+	s.publish(ctx, "tenant_profile.profile.updated", map[string]any{
+		"tenant_id": tenantID,
+	})
 
-// Delete soft-deletes an item and publishes mymodule.item.deleted.
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	// Verify existence first.
-	if _, err := s.repo.FindItemByID(ctx, id); IsNotFoundErr(err) {
-		return sdk.NotFound("item", id)
-	}
-
-	if err := s.repo.SoftDeleteItem(ctx, id); err != nil {
-		return err
-	}
-
-	s.publish(ctx, "mymodule.item.deleted", map[string]any{"item_id": id})
-	return nil
+	return profile, nil
 }
 
 // ── internal ──────────────────────────────────────────────────────────────────

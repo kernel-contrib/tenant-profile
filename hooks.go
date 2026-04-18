@@ -1,4 +1,4 @@
-package mymodule
+package tenantprofile
 
 import (
 	"context"
@@ -6,57 +6,55 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"go.edgescale.dev/kernel-contrib/tenant-profile/internal"
 	"go.edgescale.dev/kernel/sdk"
 )
 
 // RegisterHooks subscribes to kernel lifecycle hooks.
-//
-// Hook naming convention:
-//   - "before.<module>.<resource>.<action>" — fired before an action, can abort
-//   - "after.<module>.<resource>.<action>"  — fired after an action, informational
-//
-// Common kernel hooks to subscribe to:
-//   - "after.kernel.tenant.provisioned" — seed data when a new tenant is provisioned
-//   - "before.kernel.tenant.deleted"    — guard or cleanup before tenant deletion
-//
-// Your module can also EMIT hooks so other modules can intercept your operations:
-//   - "before.mymodule.item.deleted"  — allow other modules to block deletion
-//   - "after.mymodule.item.created"   — notify other modules after creation
 func (m *Module) RegisterHooks(hooks *sdk.HookRegistry) {
-	// Subscribe to kernel tenant provisioning to seed initial data.
 	hooks.After("after.kernel.tenant.provisioned", m.onTenantProvisioned)
 }
 
 // ── Hook handlers ─────────────────────────────────────────────────────────────
 
-// tenantProvisionedPayload is the expected shape of the kernel's provisioning event.
-type tenantProvisionedPayload struct {
-	TenantID uuid.UUID `json:"tenant_id"`
-	UserID   uuid.UUID `json:"user_id"`
-}
-
-// onTenantProvisioned seeds initial data when the kernel provisions a new tenant.
+// onTenantProvisioned creates an empty profile record when a tenant is provisioned.
 func (m *Module) onTenantProvisioned(ctx context.Context, payload any) error {
 	data, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("mymodule: marshal hook payload: %w", err)
+		return fmt.Errorf("tenant_profile: marshal hook payload: %w", err)
 	}
 
-	var p tenantProvisionedPayload
+	var p struct {
+		TenantID uuid.UUID `json:"tenant_id"`
+		Address  sdk.JSONB `json:"address"`
+		Industry *string   `json:"industry"`
+		Size     *string   `json:"size"`
+		Metadata sdk.JSONB `json:"metadata"`
+	}
 	if err := json.Unmarshal(data, &p); err != nil {
-		return fmt.Errorf("mymodule: unmarshal hook payload: %w", err)
+		return fmt.Errorf("tenant_profile: unmarshal hook payload: %w", err)
 	}
 
 	if p.TenantID == uuid.Nil {
-		return fmt.Errorf("mymodule: tenant.provisioned hook: missing tenant_id")
+		return fmt.Errorf("tenant_profile: tenant.provisioned hook: missing tenant_id")
 	}
 
-	m.ctx.Logger.Info("seeding initial data for new tenant",
-		"tenant_id", p.TenantID,
-	)
+	m.ctx.Logger.Info("creating profile for new tenant", "tenant_id", p.TenantID)
 
-	// TODO: Add your tenant provisioning logic here.
-	// Example: create default items, seed configuration, etc.
+	_, err = m.svc.Create(ctx, internal.CreateProfileInput{
+		TenantID: p.TenantID,
+		Address:  p.Address,
+		Industry: p.Industry,
+		Size:     p.Size,
+		Metadata: p.Metadata,
+	})
+	if err != nil {
+		if se, ok := sdk.IsServiceError(err); ok && se.HTTPStatus == 409 {
+			m.ctx.Logger.Info("tenant profile already exists, skipping", "tenant_id", p.TenantID)
+			return nil
+		}
+		return fmt.Errorf("tenant_profile: seed profile on provision: %w", err)
+	}
 
 	return nil
 }

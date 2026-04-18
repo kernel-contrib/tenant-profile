@@ -5,14 +5,11 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"go.edgescale.dev/kernel-contrib/mymodule/types"
-	"go.edgescale.dev/kernel/sdk"
+	"go.edgescale.dev/kernel-contrib/tenant-profile/types"
 	"gorm.io/gorm"
 )
 
-// Repository is the data-access layer for this module.
-// All database interactions happen through this struct.
-// Services MUST NOT use *gorm.DB directly — always go through the repository.
+// Repository is the data-access layer for the tenant_profile module.
 type Repository struct {
 	db *gorm.DB
 }
@@ -22,48 +19,32 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// ── Items ─────────────────────────────────────────────────────────────────────
-
-// FindItemByID looks up an item by its UUID.
-func (r *Repository) FindItemByID(ctx context.Context, id uuid.UUID) (*types.Item, error) {
-	var item types.Item
-	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&item).Error; err != nil {
-		return nil, fmt.Errorf("mymodule: find item by id: %w", err)
+// FindByTenantID looks up a tenant profile by tenant UUID.
+func (r *Repository) FindByTenantID(ctx context.Context, tenantID uuid.UUID) (*types.TenantProfile, error) {
+	var profile types.TenantProfile
+	if err := r.db.WithContext(ctx).Where("tenant_id = ?", tenantID).First(&profile).Error; err != nil {
+		return nil, fmt.Errorf("tenant_profile: find by tenant_id: %w", err)
 	}
-	return &item, nil
+	return &profile, nil
 }
 
-// ListItems returns a paginated list of items scoped to a tenant.
-func (r *Repository) ListItems(ctx context.Context, tenantID uuid.UUID, page sdk.PageRequest) (*sdk.PageResult[types.Item], error) {
-	return sdk.Paginate[types.Item](
-		r.db.WithContext(ctx).Model(&types.Item{}).Where("tenant_id = ?", tenantID),
-		page,
-	)
-}
-
-// CreateItem inserts a new item.
-func (r *Repository) CreateItem(ctx context.Context, item *types.Item) error {
-	if err := r.db.WithContext(ctx).Create(item).Error; err != nil {
-		return fmt.Errorf("mymodule: create item: %w", err)
+// Upsert creates or updates a tenant profile.
+// Uses ON CONFLICT to handle the 1:1 relationship.
+func (r *Repository) Upsert(ctx context.Context, profile *types.TenantProfile) error {
+	result := r.db.WithContext(ctx).Save(profile)
+	if result.Error != nil {
+		return fmt.Errorf("tenant_profile: upsert: %w", result.Error)
 	}
 	return nil
 }
 
-// UpdateItem patches an item by ID with the provided field updates.
-func (r *Repository) UpdateItem(ctx context.Context, id uuid.UUID, updates map[string]any) (*types.Item, error) {
+// Update patches a tenant profile by tenant ID with the provided field updates.
+func (r *Repository) Update(ctx context.Context, tenantID uuid.UUID, updates map[string]any) (*types.TenantProfile, error) {
 	if err := r.db.WithContext(ctx).
-		Model(&types.Item{}).
-		Where("id = ?", id).
+		Model(&types.TenantProfile{}).
+		Where("tenant_id = ?", tenantID).
 		Updates(updates).Error; err != nil {
-		return nil, fmt.Errorf("mymodule: update item: %w", err)
+		return nil, fmt.Errorf("tenant_profile: update: %w", err)
 	}
-	return r.FindItemByID(ctx, id)
-}
-
-// SoftDeleteItem performs a soft delete on an item.
-func (r *Repository) SoftDeleteItem(ctx context.Context, id uuid.UUID) error {
-	if err := r.db.WithContext(ctx).Where("id = ?", id).Delete(&types.Item{}).Error; err != nil {
-		return fmt.Errorf("mymodule: delete item: %w", err)
-	}
-	return nil
+	return r.FindByTenantID(ctx, tenantID)
 }
