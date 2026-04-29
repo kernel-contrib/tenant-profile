@@ -1,4 +1,4 @@
-module go.edgescale.dev/kernel-contrib/tenant-profile
+module github.com/kernel-contrib/tenant-profile
 
 go 1.26.1
 

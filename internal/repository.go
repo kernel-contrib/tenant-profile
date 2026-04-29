@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"go.edgescale.dev/kernel-contrib/tenant-profile/types"
+	"github.com/kernel-contrib/tenant-profile/types"
 	"gorm.io/gorm"
 )
 

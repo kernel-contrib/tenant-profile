@@ -3,8 +3,8 @@ package tenantprofile
 import (
 	"io/fs"
 
-	"go.edgescale.dev/kernel-contrib/tenant-profile/internal"
-	"go.edgescale.dev/kernel-contrib/tenant-profile/migrations"
+	"github.com/kernel-contrib/tenant-profile/internal"
+	"github.com/kernel-contrib/tenant-profile/migrations"
 	"go.edgescale.dev/kernel/sdk"
 )
 

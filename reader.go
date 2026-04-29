@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"go.edgescale.dev/kernel-contrib/tenant-profile/internal"
-	"go.edgescale.dev/kernel-contrib/tenant-profile/types"
+	"github.com/kernel-contrib/tenant-profile/internal"
+	"github.com/kernel-contrib/tenant-profile/types"
 )
 
 // ── Reader interface ──────────────────────────────────────────────────────────

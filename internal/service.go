@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"go.edgescale.dev/kernel-contrib/tenant-profile/types"
+	"github.com/kernel-contrib/tenant-profile/types"
 	"go.edgescale.dev/kernel/sdk"
 )
 
