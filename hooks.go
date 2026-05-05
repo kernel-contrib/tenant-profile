@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/edgescaleDev/kernel/sdk"
 	"github.com/google/uuid"
 	"github.com/kernel-contrib/tenant-profile/internal"
-	"go.edgescale.dev/kernel/sdk"
 )
 
 // RegisterHooks subscribes to kernel lifecycle hooks.

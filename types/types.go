@@ -6,8 +6,8 @@ package types
 import (
 	"time"
 
+	"github.com/edgescaleDev/kernel/sdk"
 	"github.com/google/uuid"
-	"go.edgescale.dev/kernel/sdk"
 	"gorm.io/gorm"
 )
 

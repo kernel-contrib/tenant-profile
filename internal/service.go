@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/edgescaleDev/kernel/sdk"
 	"github.com/google/uuid"
 	"github.com/kernel-contrib/tenant-profile/types"
-	"go.edgescale.dev/kernel/sdk"
 )
 
 // Service provides business logic for tenant profile operations.
