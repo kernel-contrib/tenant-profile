@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edgescaleDev/kernel/sdk"
 	"github.com/google/uuid"
 	"github.com/kernel-contrib/tenant-profile/internal"
 	"github.com/kernel-contrib/tenant-profile/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.edgescale.dev/kernel/sdk"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )

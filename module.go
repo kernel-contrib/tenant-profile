@@ -3,9 +3,9 @@ package tenantprofile
 import (
 	"io/fs"
 
+	"github.com/edgescaleDev/kernel/sdk"
 	"github.com/kernel-contrib/tenant-profile/internal"
 	"github.com/kernel-contrib/tenant-profile/migrations"
-	"go.edgescale.dev/kernel/sdk"
 )
 
 // Module is the main entry point for the tenant_profile kernel module.
