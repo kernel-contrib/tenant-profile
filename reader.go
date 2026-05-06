@@ -25,7 +25,11 @@ type TenantProfileReader interface {
 // ── Implementation ────────────────────────────────────────────────────────────
 
 // moduleReader is the unexported implementation registered with the kernel.
+// The embedded moduleWriter provides write operations so a single
+// RegisterReader call satisfies both TenantProfileReader and
+// TenantProfileWriter via Go's implicit composition.
 type moduleReader struct {
+	*moduleWriter
 	repo *internal.Repository
 }
 

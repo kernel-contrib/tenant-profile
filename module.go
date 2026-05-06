@@ -60,10 +60,12 @@ func (m *Module) Init(ctx sdk.Context) error {
 	m.repo = internal.NewRepository(ctx.DB)
 	m.svc = internal.NewService(m.repo, ctx.Bus, ctx.Logger)
 
-	// Register a reader so other modules can consume tenant profile data.
-	// Other modules resolve it via: sdk.Reader[tenantprofile.TenantProfileReader](&ctx, "tenant_profile")
+	// Register reader and writer so other modules can consume tenant profile data.
+	// Reads:  sdk.Reader[tenantprofile.TenantProfileReader](&ctx, "tenant_profile")
+	// Writes: sdk.Reader[tenantprofile.TenantProfileWriter](&ctx, "tenant_profile")
 	ctx.RegisterReader(&moduleReader{
-		repo: m.repo,
+		moduleWriter: &moduleWriter{svc: m.svc},
+		repo:         m.repo,
 	})
 
 	ctx.Logger.Info("tenant_profile module initialized")
