@@ -22,7 +22,7 @@ func newTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err, "open in-memory sqlite")
 
 	ddl := []string{
-		`CREATE TABLE tenants_profile (
+		`CREATE TABLE tenant_profiles (
 			tenant_id TEXT PRIMARY KEY,
 			address TEXT NOT NULL DEFAULT '{}',
 			industry TEXT,

@@ -31,7 +31,12 @@ func (m *Module) Manifest() sdk.Manifest {
 		Schema:      "module_tenant_profile",
 		Name:        "Tenant Profile",
 		Description: "Stores extended business profile data for tenants (address, industry, company size)",
-		Version:     "0.1.0",
+		Version:     "0.2.0",
+
+		Permissions: []sdk.Permission{
+			{Key: "tenant_profile.profiles.read", Label: sdk.T("View tenant profile", "ar", "عرض ملف تعريف المنشأة")},
+			{Key: "tenant_profile.profiles.manage", Label: sdk.T("Update tenant profile", "ar", "تحديث ملف تعريف المنشأة")},
+		},
 
 		PublicEvents: []sdk.EventDef{
 			{Subject: "tenant_profile.profile.created", Description: sdk.T("A tenant profile was created", "ar", "تم إنشاء ملف تعريف")},
