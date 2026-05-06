@@ -9,9 +9,13 @@ import (
 )
 
 // Module is the main entry point for the tenant_profile kernel module.
-// It manages per-tenant business profile data (address, industry, size)
-// as a headless module with no HTTP endpoints. Other modules access
-// profile data via the TenantProfileReader interface.
+// It manages per-tenant business profile data (address, industry, size).
+//
+// Integration points:
+//   - HTTP: GET and PATCH tenant-scoped profile endpoints.
+//   - Events: subscribes to iam.tenant.created to auto-seed profiles.
+//   - Hooks: reacts to after.kernel.tenant.provisioned for CLI provisioning.
+//   - Reader: exposes TenantProfileReader for cross-module queries.
 type Module struct {
 	ctx  sdk.Context
 	repo *internal.Repository
