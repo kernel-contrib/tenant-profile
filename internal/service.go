@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -84,8 +85,9 @@ type UpdateProfileInput struct {
 
 // Update patches tenant profile fields and publishes tenant_profile.profile.updated.
 func (s *Service) Update(ctx context.Context, tenantID uuid.UUID, in UpdateProfileInput) (*types.TenantProfile, error) {
-	// Verify the profile exists.
-	if _, err := s.GetByTenantID(ctx, tenantID); err != nil {
+	// Verify the profile exists and fetch it for metadata merging.
+	existing, err := s.GetByTenantID(ctx, tenantID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -100,7 +102,10 @@ func (s *Service) Update(ctx context.Context, tenantID uuid.UUID, in UpdateProfi
 		updates["size"] = *in.Size
 	}
 	if in.Metadata != nil {
-		updates["metadata"] = *in.Metadata
+		// Merge incoming metadata keys into existing metadata so that
+		// callers can update individual fields without wiping others.
+		merged := mergeJSONB(existing.Metadata, *in.Metadata)
+		updates["metadata"] = merged
 	}
 	if len(updates) == 0 {
 		return s.repo.FindByTenantID(ctx, tenantID)
@@ -125,4 +130,31 @@ func (s *Service) publish(ctx context.Context, subject string, payload map[strin
 		return
 	}
 	s.bus.Publish(ctx, subject, payload)
+}
+
+// mergeJSONB does a shallow merge of two JSONB values. Keys in patch
+// overwrite keys in base; keys absent from patch are preserved.
+// A null value in patch explicitly removes that key.
+func mergeJSONB(base, patch sdk.JSONB) sdk.JSONB {
+	var baseMap map[string]any
+	if err := json.Unmarshal(base, &baseMap); err != nil || baseMap == nil {
+		baseMap = make(map[string]any)
+	}
+
+	var patchMap map[string]any
+	if err := json.Unmarshal(patch, &patchMap); err != nil {
+		// If the patch isn't a valid JSON object, just replace entirely.
+		return patch
+	}
+
+	for k, v := range patchMap {
+		if v == nil {
+			delete(baseMap, k)
+		} else {
+			baseMap[k] = v
+		}
+	}
+
+	merged, _ := json.Marshal(baseMap)
+	return sdk.JSONB(merged)
 }
